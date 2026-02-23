@@ -4,6 +4,8 @@ import type { Database } from '#build/types/supabase-database'
 type DiaryRow = Database['public']['Tables']['diaries']['Row']
 
 const supabase = useSupabaseClient()
+const route = useRoute()
+const router = useRouter()
 
 // ── メイン：日記一覧取得（最新10件）────────────────────────────
 const { data: diaries, pending: loading, error: asyncError } = useAsyncData(
@@ -35,6 +37,79 @@ function formatDate(dateStr: string): string {
 
 function previewContent(content: string): string {
   return content.length > 120 ? content.substring(0, 120) + '…' : content
+}
+
+// ── 削除 ────────────────────────────────────────────────────
+const deletingId = ref<string | null>(null)
+const deleteError = ref<string | null>(null)
+const showDeleteModal = ref(false)
+const pendingDeleteId = ref<string | null>(null)
+const deleteSuccess = ref(false)
+let deleteSuccessTimer: ReturnType<typeof setTimeout> | undefined
+
+// diaries.value を直接変更すると useAsyncData の内部状態を汚染し
+// Nuxt dev サーバーが /__nuxt_island へ空ボディ POST を発火してしまう。
+// そのため「削除済み ID セット」で楽観的非表示を表現する。
+const deletedIds = ref<string[]>([])
+const visibleDiaries = computed(() =>
+  (diaries.value ?? []).filter(d => !deletedIds.value.includes(d.id))
+)
+
+function showSuccess() {
+  clearTimeout(deleteSuccessTimer)
+  deleteSuccess.value = true
+  deleteSuccessTimer = setTimeout(() => { deleteSuccess.value = false }, 3000)
+}
+
+onMounted(() => {
+  // 詳細ページからの削除後リダイレクト
+  if (route.query.deleted === '1') {
+    router.replace({ query: { ...route.query, deleted: undefined } })
+    showSuccess()
+  }
+})
+
+onBeforeUnmount(() => {
+  clearTimeout(deleteSuccessTimer)
+})
+
+function requestDelete(id: string) {
+  pendingDeleteId.value = id
+  showDeleteModal.value = true
+}
+
+function cancelDelete() {
+  showDeleteModal.value = false
+  pendingDeleteId.value = null
+}
+
+async function confirmDelete() {
+  const id = pendingDeleteId.value
+  if (!id) return
+
+  showDeleteModal.value = false
+  pendingDeleteId.value = null
+  deletingId.value = id
+  deleteError.value = null
+
+  // 楽観的削除（diaries.value 非破壊）
+  deletedIds.value = [...deletedIds.value, id]
+
+  const { error } = await supabase
+    .from('diaries')
+    .delete()
+    .eq('id', id)
+    .eq('user_key', 'local')
+
+  if (error) {
+    console.error('[delete] 削除エラー:', error)
+    deletedIds.value = deletedIds.value.filter(i => i !== id)  // ロールバック
+    deleteError.value = '削除に失敗しました。もう一度お試しください。'
+  } else {
+    showSuccess()
+  }
+
+  deletingId.value = null
 }
 
 // ── 開発用 Supabase 疎通確認 ────────────────────────────────
@@ -82,6 +157,41 @@ async function insertDummy() {
 
 <template>
   <div class="min-h-screen bg-white">
+    <!-- 削除成功バナー -->
+    <div
+      v-if="deleteSuccess"
+      class="fixed top-5 left-1/2 -translate-x-1/2 z-50 bg-green-500 text-white text-sm font-semibold px-6 py-3 rounded-2xl shadow-xl whitespace-nowrap"
+    >
+      ✅ 削除が完了しました
+    </div>
+
+    <!-- 削除確認モーダル -->
+    <Teleport to="body">
+      <div
+        v-if="showDeleteModal"
+        class="fixed inset-0 z-50 flex items-center justify-center px-5"
+      >
+        <div class="absolute inset-0 bg-black/40" @click="cancelDelete"></div>
+        <div class="relative bg-white rounded-3xl shadow-2xl p-7 w-full max-w-sm">
+          <p class="text-base font-bold text-gray-900 mb-2">日記を削除しますか？</p>
+          <p class="text-sm text-gray-500 leading-relaxed mb-6">この操作は取り消せません。</p>
+          <div class="flex gap-3">
+            <button
+              class="flex-1 py-3 rounded-2xl text-sm font-semibold bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+              @click="cancelDelete"
+            >
+              キャンセル
+            </button>
+            <button
+              class="flex-1 py-3 rounded-2xl text-sm font-semibold bg-red-500 text-white hover:bg-red-600 transition-colors"
+              @click="confirmDelete"
+            >
+              削除する
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
     <!-- ヘッダーエリア：上部に薄いグラデ -->
     <div class="bg-gradient-to-b from-indigo-50/70 via-purple-50/20 to-white px-5 pt-14 pb-7">
       <div class="max-w-md mx-auto">
@@ -120,7 +230,7 @@ async function insertDummy() {
 
       <!-- 空状態 -->
       <div
-        v-else-if="!diaries || diaries.length === 0"
+        v-else-if="visibleDiaries.length === 0"
         class="bg-white rounded-3xl border border-gray-100 shadow-sm p-14 text-center mt-2"
       >
         <p class="text-5xl mb-4">📔</p>
@@ -132,11 +242,21 @@ async function insertDummy() {
 
       <!-- 日記リスト -->
       <div v-else class="space-y-3">
-        <NuxtLink
-          v-for="diary in diaries"
+        <!-- 削除エラー -->
+        <div
+          v-if="deleteError"
+          class="bg-red-50 rounded-2xl px-4 py-3 text-sm text-red-600 font-medium"
+        >
+          ⚠️ {{ deleteError }}
+        </div>
+        <div
+          v-for="diary in visibleDiaries"
           :key="diary.id"
-          :to="`/diary/${diary.id}`"
-          class="flex items-center gap-4 bg-white rounded-3xl border border-gray-100 shadow-sm p-4 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 active:scale-95"
+          role="link"
+          tabindex="0"
+          class="flex items-center gap-4 bg-white rounded-3xl border border-gray-100 shadow-sm p-4 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 active:scale-95 cursor-pointer"
+          @click="navigateTo(`/diary/${diary.id}`)"
+          @keydown.enter="navigateTo(`/diary/${diary.id}`)"
         >
           <!-- 左アイコン -->
           <div class="w-11 h-11 rounded-2xl bg-indigo-50 flex items-center justify-center flex-shrink-0 text-xl">
@@ -159,9 +279,18 @@ async function insertDummy() {
             </div>
           </div>
 
-          <!-- 右：シェブロン -->
-          <span class="text-gray-300 text-2xl leading-none flex-shrink-0 font-light">›</span>
-        </NuxtLink>
+          <!-- 右：削除ボタン＋シェブロン -->
+          <div class="flex items-center gap-1 flex-shrink-0">
+            <button
+              :disabled="deletingId === diary.id"
+              class="px-2.5 py-1 rounded-lg text-xs font-medium bg-red-500 text-white hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+              @click.stop="requestDelete(diary.id)"
+            >
+              {{ deletingId === diary.id ? '削除中…' : '削除' }}
+            </button>
+            <span class="text-gray-300 text-2xl leading-none font-light">›</span>
+          </div>
+        </div>
       </div>
 
       <!-- （開発用）Supabase疎通確認：折りたたみ -->
