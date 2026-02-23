@@ -44,12 +44,21 @@ function formatDate(dateStr: string): string {
 const savedBanner = ref(false)
 const analyzedBanner = ref(false)
 
+let savedTimerId: ReturnType<typeof setTimeout> | undefined
+let analyzedTimerId: ReturnType<typeof setTimeout> | undefined
+
 onMounted(() => {
   if (route.query.created === '1') {
     savedBanner.value = true
-    router.replace({ query: {} })
-    setTimeout(() => { savedBanner.value = false }, 3000)
+    const { created: _created, ...rest } = route.query
+    router.replace({ query: rest })
+    savedTimerId = setTimeout(() => { savedBanner.value = false }, 3000)
   }
+})
+
+onBeforeUnmount(() => {
+  clearTimeout(savedTimerId)
+  clearTimeout(analyzedTimerId)
 })
 
 const analyzing = ref(false)
@@ -109,7 +118,7 @@ async function handleAnalyze() {
 
     // 分析成功バナー
     analyzedBanner.value = true
-    setTimeout(() => { analyzedBanner.value = false }, 3000)
+    analyzedTimerId = setTimeout(() => { analyzedBanner.value = false }, 3000)
   }
   catch (err) {
     // ofetch の FetchError は data.statusMessage にサーバ側メッセージが入る
