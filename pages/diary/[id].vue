@@ -1,20 +1,20 @@
 <script setup lang="ts">
-import type { Database } from '#build/types/supabase-database'
+import type { Database } from '~/types/database.types'
 
 type DiaryRow = Database['public']['Tables']['diaries']['Row']
 
 const route = useRoute()
-const id = route.params.id as string
+const id = computed(() => route.params.id as string)
 
 const supabase = useSupabaseClient()
 
 const { data: diary, pending: loading, error: asyncError } = useAsyncData(
-  `diary-${id}`,
+  () => `diary-${id.value}`,
   async () => {
     const { data, error } = await supabase
       .from('diaries')
       .select('id, user_key, content, created_at, ai_summary, ai_emotion, ai_next_action, ai_tags')
-      .eq('id', id)
+      .eq('id', id.value)
       .eq('user_key', 'local')
       .single()
     if (error) {
@@ -22,6 +22,7 @@ const { data: diary, pending: loading, error: asyncError } = useAsyncData(
       console.error('[diary detail] 取得エラー:', error)
       throw error
     }
+    if (!data) return null
     return data as DiaryRow
   },
 )
@@ -35,7 +36,7 @@ const notFound = computed(() => !loading.value && !asyncError.value && diary.val
 function formatDate(dateStr: string): string {
   const d = new Date(dateStr)
   const pad = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}年${pad(d.getMonth() + 1)}月${pad(d.getDate())}日 ${pad(d.getHours())}:${pad(d.getMinutes())}`
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
 const handleAnalyze = () => {
