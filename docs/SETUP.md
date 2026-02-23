@@ -7,9 +7,22 @@
 ```
 NUXT_PUBLIC_SUPABASE_URL=https://<your-project>.supabase.co
 NUXT_PUBLIC_SUPABASE_KEY=<your-anon-key>
+
+# OpenAI（サーバーサイドのみ。クライアントには公開しない）
+OPENAI_API_KEY=sk-...
+# OPENAI_MODEL=gpt-4o-mini   # 省略時は gpt-4o-mini を使用
 ```
 
 > **注意**: `.env` は `.gitignore` に含まれており、リポジトリにはコミットされません。
+
+### OpenAI APIキーの取得手順
+
+1. [OpenAI Platform](https://platform.openai.com/api-keys) にログインする
+2. **「+ Create new secret key」** をクリックしてキーを発行する
+3. 発行されたキー（`sk-...`）を `.env` の `OPENAI_API_KEY` に貼り付ける
+4. モデルを変更したい場合は `OPENAI_MODEL` に任意のモデル名を指定する（例: `gpt-4o`）
+
+> **セキュリティ**: `OPENAI_API_KEY` は `NUXT_PUBLIC_` プレフィックスを持たないため、サーバーサイド（`server/api/`）のみで参照されます。ブラウザには一切公開されません。
 
 ---
 
