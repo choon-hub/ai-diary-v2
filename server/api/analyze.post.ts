@@ -97,11 +97,18 @@ export default defineEventHandler(async (event) => {
 
   // null / 非オブジェクトガード
   if (!result || typeof result !== 'object' || Array.isArray(result)) {
-    console.error('[analyze] 不正なレスポンス形式:', typeof result)
+    console.error('[analyze] 不正なレスポンス形式: type=', typeof result)
     throw createError({
       statusCode: 502,
       statusMessage: 'AI応答の解析に失敗しました',
     })
+  }
+
+  // object の場合のみキーをログ（本文は出力しない）
+  const actualKeys = Object.keys(result)
+  const expectedKeys = ['summary', 'emotion', 'nextAction', 'tags']
+  if (!expectedKeys.every(k => actualKeys.includes(k))) {
+    console.warn('[analyze] 不完全なレスポンス: type=object, keys=', actualKeys)
   }
 
   // tags を必ず3つに補完（非文字列要素は除去）
