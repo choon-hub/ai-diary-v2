@@ -136,6 +136,43 @@ async function goHome() {
   await refreshNuxtData('diaries-list')
   await navigateTo('/')
 }
+
+// ── 削除 ────────────────────────────────────────────────────
+const deleting = ref(false)
+const deleteError = ref<string | null>(null)
+const showDeleteModal = ref(false)
+
+function requestDelete() {
+  showDeleteModal.value = true
+}
+
+function cancelDelete() {
+  showDeleteModal.value = false
+}
+
+async function confirmDelete() {
+  if (!diary.value) return
+  showDeleteModal.value = false
+
+  deleting.value = true
+  deleteError.value = null
+
+  const { error } = await supabase
+    .from('diaries')
+    .delete()
+    .eq('id', diary.value.id)
+    .eq('user_key', 'local')
+
+  if (error) {
+    console.error('[diary delete] 削除エラー:', error)
+    deleteError.value = '削除に失敗しました。もう一度お試しください。'
+    deleting.value = false
+    return
+  }
+
+  await refreshNuxtData('diaries-list')
+  await navigateTo('/?deleted=1')
+}
 </script>
 
 <template>
@@ -156,21 +193,68 @@ async function goHome() {
       ✨ AI分析が完了しました
     </div>
 
+    <!-- 削除確認モーダル -->
+    <Teleport to="body">
+      <div
+        v-if="showDeleteModal"
+        class="fixed inset-0 z-50 flex items-center justify-center px-5"
+      >
+        <div class="absolute inset-0 bg-black/40" @click="cancelDelete"></div>
+        <div class="relative bg-white rounded-3xl shadow-2xl p-7 w-full max-w-sm">
+          <p class="text-base font-bold text-gray-900 mb-2">日記を削除しますか？</p>
+          <p class="text-sm text-gray-500 leading-relaxed mb-6">この操作は取り消せません。</p>
+          <div class="flex gap-3">
+            <button
+              class="flex-1 py-3 rounded-2xl text-sm font-semibold bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+              @click="cancelDelete"
+            >
+              キャンセル
+            </button>
+            <button
+              class="flex-1 py-3 rounded-2xl text-sm font-semibold bg-red-500 text-white hover:bg-red-600 transition-colors"
+              @click="confirmDelete"
+            >
+              削除する
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
     <!-- ヘッダー -->
     <div class="bg-gradient-to-b from-indigo-50/70 via-purple-50/20 to-white px-5 pt-14 pb-7">
       <div class="max-w-md mx-auto">
-        <button
-          class="inline-flex items-center gap-1 text-sm font-medium text-indigo-600 hover:text-indigo-700 transition-colors mb-5"
-          @click="goHome"
-        >
-          ← 一覧へ
-        </button>
+        <div class="flex items-center justify-between mb-5">
+          <button
+            class="inline-flex items-center gap-1 text-sm font-medium text-indigo-600 hover:text-indigo-700 transition-colors"
+            @click="goHome"
+          >
+            ← 一覧へ
+          </button>
+          <!-- 削除ボタン -->
+          <button
+            v-if="diary && !loading"
+            :disabled="deleting"
+            class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium bg-red-500 text-white hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            @click="requestDelete"
+          >
+            {{ deleting ? '削除中…' : '削除' }}
+          </button>
+        </div>
         <h1 class="text-2xl font-bold text-gray-900 tracking-tight">日記</h1>
         <p v-if="diary" class="mt-1 text-sm text-gray-400">{{ formatDate(diary.created_at) }}</p>
       </div>
     </div>
 
     <div class="max-w-md mx-auto px-5 pb-12">
+      <!-- 削除エラー -->
+      <div
+        v-if="deleteError"
+        class="mb-4 bg-red-50 rounded-2xl px-4 py-3 text-sm text-red-600 font-medium"
+      >
+        ⚠️ {{ deleteError }}
+      </div>
+
       <!-- ローディング：スケルトン -->
       <div v-if="loading" class="space-y-4">
         <div class="bg-white rounded-3xl border border-gray-100 shadow-sm p-5 animate-pulse">
