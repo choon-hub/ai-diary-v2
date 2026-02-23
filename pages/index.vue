@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { Database } from '#build/types/supabase-database'
+
 const dummyDiaries = [
   {
     id: '1',
@@ -19,6 +21,51 @@ const dummyDiaries = [
     preview: '久しぶりに図書館に行って、気になっていた小説を借りてきた。帰りに近くのカフェで少し読んだら、すぐに引き込まれてしまった。',
   },
 ]
+
+// ── 開発用 Supabase 疎通確認 ────────────────────────────────
+const isDev = process.dev
+
+type DiaryRow = Database['public']['Tables']['diaries']['Row']
+
+const supabase = useSupabaseClient()
+const devDiaries = ref<DiaryRow[]>([])
+const devLoading = ref(false)
+const devError = ref<string | null>(null)
+
+async function fetchLatest() {
+  devLoading.value = true
+  devError.value = null
+  const { data, error } = await supabase
+    .from('diaries')
+    .select('id, user_key, content, created_at')
+    .eq('user_key', 'local')
+    .order('created_at', { ascending: false })
+    .limit(3)
+  devLoading.value = false
+  if (error) {
+    devError.value = `取得に失敗しました: ${error.message}`
+    console.error('[Supabase疎通] 取得エラー:', error)
+    return
+  }
+  devDiaries.value = (data as DiaryRow[]) ?? []
+}
+
+async function insertDummy() {
+  devLoading.value = true
+  devError.value = null
+  const now = new Date().toISOString().replace('T', ' ').substring(0, 19)
+  const { error } = await supabase.from('diaries').insert({
+    user_key: 'local',
+    content: `疎通テスト: ${now}`,
+  })
+  if (error) {
+    devLoading.value = false
+    devError.value = `追加に失敗しました: ${error.message}`
+    console.error('[Supabase疎通] 追加エラー:', error)
+    return
+  }
+  await fetchLatest()
+}
 </script>
 
 <template>
@@ -49,6 +96,55 @@ const dummyDiaries = [
             <span class="ml-4 text-gray-300 text-2xl leading-none">›</span>
           </div>
         </NuxtLink>
+      </div>
+
+      <!-- （開発用）Supabase疎通確認カード -->
+      <div
+        v-if="isDev"
+        class="mt-12 bg-yellow-50 border border-yellow-200 rounded-2xl p-6"
+      >
+        <h2 class="text-sm font-bold text-yellow-700 mb-4">
+          🛠 （開発用）Supabase疎通
+        </h2>
+
+        <!-- ボタン群 -->
+        <div class="flex gap-3 mb-4">
+          <button
+            :disabled="devLoading"
+            class="px-4 py-2 text-sm font-medium rounded-lg bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            @click="fetchLatest"
+          >
+            {{ devLoading ? '取得中…' : '最新を取得' }}
+          </button>
+          <button
+            :disabled="devLoading"
+            class="px-4 py-2 text-sm font-medium rounded-lg bg-green-500 text-white hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            @click="insertDummy"
+          >
+            {{ devLoading ? '取得中…' : 'ダミーを1件追加' }}
+          </button>
+        </div>
+
+        <!-- エラー表示 -->
+        <p v-if="devError" class="text-sm text-red-600 mb-3">
+          ⚠️ {{ devError }}
+        </p>
+
+        <!-- 取得結果 -->
+        <div v-if="devDiaries.length > 0" class="space-y-2">
+          <p class="text-xs text-yellow-600 font-medium">取得結果（{{ devDiaries.length }}件）</p>
+          <div
+            v-for="row in devDiaries"
+            :key="row.id"
+            class="bg-white border border-yellow-100 rounded-lg p-3 text-xs font-mono text-gray-700 break-all"
+          >
+            <span class="text-gray-400">{{ row.created_at.substring(0, 19).replace('T', ' ') }}</span>
+            &nbsp;{{ row.content }}
+          </div>
+        </div>
+        <p v-else-if="!devLoading && devError === null" class="text-xs text-gray-400">
+          まだ取得していません。ボタンを押して疎通を確認してください。
+        </p>
       </div>
     </div>
 
