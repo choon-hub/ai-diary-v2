@@ -95,10 +95,20 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  // tags を必ず3つに補完
+  // null / 非オブジェクトガード
+  if (!result || typeof result !== 'object' || Array.isArray(result)) {
+    console.error('[analyze] 不正なレスポンス形式:', typeof result)
+    throw createError({
+      statusCode: 502,
+      statusMessage: 'AI応答の解析に失敗しました',
+    })
+  }
+
+  // tags を必ず3つに補完（非文字列要素は除去）
   if (!Array.isArray(result.tags)) {
     result.tags = []
   }
+  result.tags = result.tags.filter((t): t is string => typeof t === 'string')
   while (result.tags.length < 3) {
     result.tags.push('その他')
   }

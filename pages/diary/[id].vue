@@ -4,6 +4,7 @@ import type { Database } from '~/types/database.types'
 type DiaryRow = Database['public']['Tables']['diaries']['Row']
 
 const route = useRoute()
+const router = useRouter()
 const id = computed(() => route.params.id as string)
 
 const supabase = useSupabaseClient()
@@ -38,6 +39,18 @@ function formatDate(dateStr: string): string {
   const pad = (n: number) => String(n).padStart(2, '0')
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
+
+// ── 成功バナー ──────────────────────────────────────────────
+const savedBanner = ref(false)
+const analyzedBanner = ref(false)
+
+onMounted(() => {
+  if (route.query.created === '1') {
+    savedBanner.value = true
+    router.replace({ query: {} })
+    setTimeout(() => { savedBanner.value = false }, 3000)
+  }
+})
 
 const analyzing = ref(false)
 const analyzeError = ref<string | null>(null)
@@ -93,6 +106,10 @@ async function handleAnalyze() {
 
     if (error) throw new Error(error.message)
     if (data) diary.value = data as DiaryRow
+
+    // 分析成功バナー
+    analyzedBanner.value = true
+    setTimeout(() => { analyzedBanner.value = false }, 3000)
   }
   catch (err) {
     // ofetch の FetchError は data.statusMessage にサーバ側メッセージが入る
@@ -116,6 +133,22 @@ async function goHome() {
 
 <template>
   <div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+    <!-- 成功バナー：保存 -->
+    <div
+      v-if="savedBanner"
+      class="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-green-500 text-white text-sm font-medium px-5 py-2 rounded-full shadow-lg whitespace-nowrap"
+    >
+      ✅ 保存しました
+    </div>
+
+    <!-- 成功バナー：AI分析 -->
+    <div
+      v-if="analyzedBanner"
+      class="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-purple-500 text-white text-sm font-medium px-5 py-2 rounded-full shadow-lg whitespace-nowrap"
+    >
+      ✨ AI分析が完了しました
+    </div>
+
     <div class="max-w-2xl mx-auto px-4 py-12">
       <!-- ヘッダー -->
       <div class="mb-8">
@@ -126,7 +159,7 @@ async function goHome() {
           ← 一覧に戻る
         </button>
         <h1 class="text-3xl font-bold text-gray-800">日記詳細</h1>
-        <p v-if="diary" class="text-sm text-gray-400 mt-1">{{ formatDate(diary.created_at) }}</p>
+        <p v-if="diary" class="text-sm text-gray-500 mt-1">{{ formatDate(diary.created_at) }}</p>
       </div>
 
       <!-- ローディング：スケルトン -->
@@ -187,7 +220,7 @@ async function goHome() {
             </div>
 
             <!-- 感情 -->
-            <div v-if="diary.ai_emotion" class="bg-white rounded-2xl shadow border border-gray-100 p-5">
+            <div v-if="diary.ai_emotion" class="bg-white rounded-2xl shadow border border-gray-100 p-6">
               <p class="text-xs font-semibold text-gray-500 mb-2">感情</p>
               <span class="inline-block px-3 py-1 rounded-full text-sm font-medium bg-pink-100 text-pink-700">
                 {{ diary.ai_emotion }}
@@ -195,13 +228,13 @@ async function goHome() {
             </div>
 
             <!-- 次のアクション -->
-            <div v-if="diary.ai_next_action" class="bg-white rounded-2xl shadow border border-gray-100 p-5">
+            <div v-if="diary.ai_next_action" class="bg-white rounded-2xl shadow border border-gray-100 p-6">
               <p class="text-xs font-semibold text-gray-500 mb-2">次のアクション</p>
               <p class="text-gray-700 text-sm leading-relaxed">{{ diary.ai_next_action }}</p>
             </div>
 
             <!-- タグ -->
-            <div v-if="diary.ai_tags && diary.ai_tags.length > 0" class="bg-white rounded-2xl shadow border border-gray-100 p-5">
+            <div v-if="diary.ai_tags && diary.ai_tags.length > 0" class="bg-white rounded-2xl shadow border border-gray-100 p-6">
               <p class="text-xs font-semibold text-gray-500 mb-3">タグ</p>
               <div class="flex flex-wrap gap-2">
                 <span

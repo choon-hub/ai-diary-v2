@@ -27,7 +27,7 @@ async function handleSave() {
     return
   }
 
-  await navigateTo(`/diary/${data.id}`)
+  await navigateTo(`/diary/${data.id}?created=1`)
 }
 </script>
 
@@ -43,7 +43,7 @@ async function handleSave() {
           ← 一覧に戻る
         </NuxtLink>
         <h1 class="text-3xl font-bold text-gray-800">新しい日記を書く</h1>
-        <p class="mt-2 text-gray-400 text-sm">今日の出来事や感じたことを書いてみましょう</p>
+        <p class="mt-2 text-gray-500 text-sm">今日の出来事や感じたことを書いてみましょう</p>
       </div>
 
       <!-- フォーム -->
@@ -66,7 +66,7 @@ async function handleSave() {
         <div class="mt-4 pt-4 border-t border-gray-100 flex justify-end">
           <button
             :disabled="saving"
-            class="px-6 py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-purple-600 text-white text-sm font-medium shadow-md transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none"
+            class="px-6 py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-purple-600 text-white text-sm font-medium shadow-md transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-md"
             @click="handleSave"
           >
             {{ saving ? '保存中…' : '保存する' }}
