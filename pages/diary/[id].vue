@@ -39,8 +39,66 @@ function formatDate(dateStr: string): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
-const handleAnalyze = () => {
-  // TODO: AI分析処理は後で実装（OpenAI連携）
+const analyzing = ref(false)
+const analyzeError = ref<string | null>(null)
+
+async function handleAnalyze() {
+  if (!diary.value) return
+  analyzing.value = true
+  analyzeError.value = null
+
+  try {
+    const result = await $fetch<{
+      summary: string
+      emotion: string
+      nextAction: string
+      tags: string[]
+    }>('/api/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content: String(diary.value.content) }),
+    })
+
+    // 最小バリデーション
+    if (
+      typeof result.summary !== 'string' ||
+      typeof result.emotion !== 'string' ||
+      typeof result.nextAction !== 'string' ||
+      !Array.isArray(result.tags)
+    ) {
+      throw new Error('AI応答の形式が不正です')
+    }
+
+    // tags を3つに補完（サーバ側で揃えているが念のため）
+    const tags = result.tags as string[]
+    while (tags.length < 3) tags.push('その他')
+
+    // Supabase update
+    const { data, error } = await supabase
+      .from('diaries')
+      .update({
+        ai_summary: result.summary,
+        ai_emotion: result.emotion,
+        ai_next_action: result.nextAction,
+        ai_tags: tags.slice(0, 3),
+      })
+      .eq('id', diary.value.id)
+      .eq('user_key', 'local')
+      .select('id, user_key, content, created_at, ai_summary, ai_emotion, ai_next_action, ai_tags')
+      .single()
+
+    if (error) throw new Error(error.message)
+    if (data) diary.value = data as DiaryRow
+  }
+  catch (err) {
+    // ofetch の FetchError は data.statusMessage にサーバ側メッセージが入る
+    const serverMsg = (err as { data?: { statusMessage?: string } }).data?.statusMessage
+    const baseMsg = err instanceof Error ? err.message : String(err)
+    analyzeError.value = `AI分析に失敗しました: ${serverMsg ?? baseMsg}`
+  }
+  finally {
+    analyzing.value = false
+  }
 }
 
 async function goHome() {
@@ -158,13 +216,23 @@ async function goHome() {
               <p class="text-gray-400 text-sm mb-1">まだAI分析が行われていません</p>
               <p class="text-xs text-gray-300 mb-6">分析するとAIが要約・感情・次のアクションを提案します</p>
             </div>
+
+            <!-- AI分析エラー表示 -->
+            <div
+              v-if="analyzeError"
+              class="mb-4 bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-red-700 text-sm"
+            >
+              ⚠️ {{ analyzeError }}
+            </div>
+
             <div class="flex justify-center">
               <button
+                :disabled="analyzing"
                 @click="handleAnalyze"
-                class="px-8 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-purple-600 text-white text-sm font-medium shadow-md transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg flex items-center gap-2"
+                class="px-8 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-purple-600 text-white text-sm font-medium shadow-md transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-md"
               >
                 <span>✨</span>
-                AIで分析する
+                {{ analyzing ? '分析中…' : 'AIで分析する' }}
               </button>
             </div>
           </div>

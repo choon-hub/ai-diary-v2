@@ -39,11 +39,11 @@ ${content}
 export default defineEventHandler(async (event) => {
   const body = await readBody<AnalyzeBody>(event)
 
-  // バリデーション
-  if (!body?.content || body.content.trim().length < 10) {
+  // バリデーション（日本語は1文字でも意味があるため空チェックのみ）
+  if (!body?.content || body.content.trim().length === 0) {
     throw createError({
       statusCode: 400,
-      statusMessage: '本文が短すぎます',
+      statusMessage: '本文が入力されていません',
     })
   }
 
@@ -104,10 +104,23 @@ export default defineEventHandler(async (event) => {
   }
   result.tags = result.tags.slice(0, 3)
 
+  const summary =
+    typeof result.summary === 'string' && result.summary.trim()
+      ? result.summary.trim()
+      : '（要約を取得できませんでした）'
+  const emotion =
+    typeof result.emotion === 'string' && result.emotion.trim()
+      ? result.emotion.trim()
+      : '不明'
+  const nextAction =
+    typeof result.nextAction === 'string' && result.nextAction.trim()
+      ? result.nextAction.trim()
+      : '（提案を取得できませんでした）'
+
   return {
-    summary: result.summary ?? '',
-    emotion: result.emotion ?? '',
-    nextAction: result.nextAction ?? '',
+    summary,
+    emotion,
+    nextAction,
     tags: result.tags,
   } satisfies AnalyzeResult
 })
