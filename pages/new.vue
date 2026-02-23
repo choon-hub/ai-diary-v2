@@ -22,8 +22,8 @@ async function handleSave() {
 
   if (error) {
     saving.value = false
-    saveError.value = `保存に失敗しました: ${error.message}`
     console.error('[new] 保存エラー:', error)
+    saveError.value = '保存に失敗しました。しばらくしてから再試行してください。'
     return
   }
 
