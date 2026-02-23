@@ -28,7 +28,7 @@ const { data: diary, pending: loading, error: asyncError } = useAsyncData(
 )
 
 const fetchError = computed(() =>
-  asyncError.value ? `取得に失敗しました: ${asyncError.value.message}` : null,
+  asyncError.value ? '日記の読み込みに失敗しました。' : null,
 )
 
 const notFound = computed(() => !loading.value && !asyncError.value && diary.value === null)
@@ -55,8 +55,7 @@ async function handleAnalyze() {
       tags: string[]
     }>('/api/analyze', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content: String(diary.value.content) }),
+      body: { content: String(diary.value.content) },
     })
 
     // 最小バリデーション
@@ -70,8 +69,13 @@ async function handleAnalyze() {
     }
 
     // tags を3つに補完（サーバ側で揃えているが念のため）
-    const tags = result.tags as string[]
-    while (tags.length < 3) tags.push('その他')
+    // 重複を避けながら不足分を ['その他','日常','メモ'] の順で補完する
+    const FALLBACK_TAGS = ['その他', '日常', 'メモ']
+    const tags = [...(result.tags as string[])]
+    for (const fb of FALLBACK_TAGS) {
+      if (tags.length >= 3) break
+      if (!tags.includes(fb)) tags.push(fb)
+    }
 
     // Supabase update
     const { data, error } = await supabase
@@ -94,7 +98,10 @@ async function handleAnalyze() {
     // ofetch の FetchError は data.statusMessage にサーバ側メッセージが入る
     const serverMsg = (err as { data?: { statusMessage?: string } }).data?.statusMessage
     const baseMsg = err instanceof Error ? err.message : String(err)
-    analyzeError.value = `AI分析に失敗しました: ${serverMsg ?? baseMsg}`
+    console.error('[analyze] 詳細:', baseMsg)
+    analyzeError.value = serverMsg
+      ? `AI分析に失敗しました: ${serverMsg}`
+      : 'AI分析に失敗しました。しばらくしてから再試行してください。'
   }
   finally {
     analyzing.value = false
@@ -150,7 +157,8 @@ async function goHome() {
         v-else-if="notFound"
         class="bg-white rounded-2xl shadow border border-gray-100 p-12 text-center"
       >
-        <p class="text-gray-400 text-sm mb-4">日記が見つかりませんでした。</p>
+        <p class="text-4xl mb-4">🔍</p>
+        <p class="text-gray-400 text-sm mb-6">この日記は見つかりませんでした。</p>
         <button
           class="inline-flex items-center gap-1 text-sm text-blue-500 hover:text-blue-700 transition-colors"
           @click="goHome"

@@ -24,7 +24,7 @@ const { data: diaries, pending: loading, error: asyncError } = useAsyncData(
 )
 
 const fetchError = computed(() =>
-  asyncError.value ? `取得に失敗しました: ${asyncError.value.message}` : null,
+  asyncError.value ? '日記の読み込みに失敗しました。' : null,
 )
 
 function formatDate(dateStr: string): string {
@@ -118,8 +118,9 @@ async function insertDummy() {
         v-else-if="!diaries || diaries.length === 0"
         class="bg-white rounded-2xl shadow border border-gray-100 p-12 text-center"
       >
+        <p class="text-4xl mb-4">📔</p>
         <p class="text-gray-400 text-sm leading-relaxed">
-          まだ日記がありません。<br>右下の＋から作成してください。
+          まだ日記がありません。<br>右下の＋ボタンから最初の日記を書いてみましょう。
         </p>
       </div>
 
