@@ -1,8 +1,33 @@
 <script setup lang="ts">
 const content = ref('')
+const saving = ref(false)
+const saveError = ref<string | null>(null)
 
-const handleSave = () => {
-  // TODO: 保存処理は後で実装（Supabase連携）
+const supabase = useSupabaseClient()
+
+async function handleSave() {
+  if (!content.value.trim()) {
+    saveError.value = '本文を入力してください'
+    return
+  }
+
+  saving.value = true
+  saveError.value = null
+
+  const { data, error } = await supabase
+    .from('diaries')
+    .insert({ user_key: 'local', content: content.value.trim() })
+    .select('id')
+    .single()
+
+  if (error) {
+    saving.value = false
+    saveError.value = `保存に失敗しました: ${error.message}`
+    console.error('[new] 保存エラー:', error)
+    return
+  }
+
+  await navigateTo(`/diary/${data.id}`)
 }
 </script>
 
@@ -27,13 +52,24 @@ const handleSave = () => {
           v-model="content"
           placeholder="今日はどんな一日でしたか？"
           class="w-full h-64 resize-none text-gray-700 text-sm leading-relaxed placeholder-gray-300 focus:outline-none"
+          :disabled="saving"
         />
+
+        <!-- エラー表示 -->
+        <p
+          v-if="saveError"
+          class="mt-3 text-sm text-red-600"
+        >
+          ⚠️ {{ saveError }}
+        </p>
+
         <div class="mt-4 pt-4 border-t border-gray-100 flex justify-end">
           <button
+            :disabled="saving"
+            class="px-6 py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-purple-600 text-white text-sm font-medium shadow-md transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none"
             @click="handleSave"
-            class="px-6 py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-purple-600 text-white text-sm font-medium shadow-md transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg"
           >
-            保存する
+            {{ saving ? '保存中…' : '保存する' }}
           </button>
         </div>
       </div>
