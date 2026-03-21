@@ -195,8 +195,18 @@ async function insertDummy() {
     <!-- ヘッダーエリア：上部に薄いグラデ -->
     <div class="bg-gradient-to-b from-indigo-50/70 via-purple-50/20 to-white px-5 pt-14 pb-7">
       <div class="max-w-md mx-auto">
-        <h1 class="text-2xl font-bold text-gray-900 tracking-tight">AI日記</h1>
-        <p class="mt-1 text-sm text-gray-400">あなたの毎日をAIが分析・サポート</p>
+        <div class="flex items-center justify-between">
+          <div>
+            <h1 class="text-2xl font-bold text-gray-900 tracking-tight">AI日記</h1>
+            <p class="mt-1 text-sm text-gray-400">あなたの毎日をAIが分析・サポート</p>
+          </div>
+          <NuxtLink
+            to="/dashboard"
+            class="inline-flex items-center gap-1.5 px-4 py-2 rounded-2xl text-sm font-medium bg-white border border-gray-100 shadow-sm text-indigo-600 hover:bg-indigo-50 transition-colors"
+          >
+            📊 分析
+          </NuxtLink>
+        </div>
       </div>
     </div>
 
