@@ -67,6 +67,14 @@ onMounted(() => {
     router.replace({ query: { ...route.query, deleted: undefined } })
     showSuccess()
   }
+  // インポート後リダイレクト
+  if (route.query.imported === '1') {
+    router.replace({ query: { ...route.query, imported: undefined } })
+    clearTimeout(importSuccessTimer)
+    importSuccess.value = true
+    importSuccessTimer = setTimeout(() => { importSuccess.value = false }, 3000)
+    refreshNuxtData('diaries-list')
+  }
 })
 
 onBeforeUnmount(() => {
@@ -111,6 +119,14 @@ async function confirmDelete() {
 
   deletingId.value = null
 }
+
+// ── インポート成功バナー ──────────────────────────────────────
+const importSuccess = ref(false)
+let importSuccessTimer: ReturnType<typeof setTimeout> | undefined
+
+onBeforeUnmount(() => {
+  clearTimeout(importSuccessTimer)
+})
 
 // ── 開発用 Supabase 疎通確認 ────────────────────────────────
 const isDev = process.dev
@@ -165,6 +181,14 @@ async function insertDummy() {
       ✅ 削除が完了しました
     </div>
 
+    <!-- インポート成功バナー -->
+    <div
+      v-if="importSuccess"
+      class="fixed top-5 left-1/2 -translate-x-1/2 z-50 bg-indigo-500 text-white text-sm font-semibold px-6 py-3 rounded-2xl shadow-xl whitespace-nowrap"
+    >
+      ✅ インポートが完了しました
+    </div>
+
     <!-- 削除確認モーダル -->
     <Teleport to="body">
       <div
@@ -200,12 +224,20 @@ async function insertDummy() {
             <h1 class="text-2xl font-bold text-gray-900 tracking-tight">AI日記</h1>
             <p class="mt-1 text-sm text-gray-400">あなたの毎日をAIが分析・サポート</p>
           </div>
-          <NuxtLink
-            to="/dashboard"
-            class="inline-flex items-center gap-1.5 px-4 py-2 rounded-2xl text-sm font-medium bg-white border border-gray-100 shadow-sm text-indigo-600 hover:bg-indigo-50 transition-colors"
-          >
-            📊 分析
-          </NuxtLink>
+          <div class="flex items-center gap-2">
+            <NuxtLink
+              to="/import"
+              class="inline-flex items-center gap-1.5 px-3 py-2 rounded-2xl text-sm font-medium bg-white border border-gray-100 shadow-sm text-gray-600 hover:bg-gray-50 transition-colors"
+            >
+              📥 読込
+            </NuxtLink>
+            <NuxtLink
+              to="/dashboard"
+              class="inline-flex items-center gap-1.5 px-4 py-2 rounded-2xl text-sm font-medium bg-white border border-gray-100 shadow-sm text-indigo-600 hover:bg-indigo-50 transition-colors"
+            >
+              📊 分析
+            </NuxtLink>
+          </div>
         </div>
       </div>
     </div>
